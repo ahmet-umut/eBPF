@@ -1,4 +1,4 @@
-* Creating namespaces:
+**Creating namespaces:**
 ```
 alias e="sudo ip netns exec"
 sudo ip netns add n1
