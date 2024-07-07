@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+//Sender Kernelspace Input
 
+//Not sure about all the headers here are used or not. Shall be reduced
 #include <string.h>
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
@@ -14,27 +16,30 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
+//common definitions. Check before continueing
 #include "k.h"
 #include "c.h"
 
+//obvious
 struct {
 	__uint(type, BPF_MAP_TYPE_RINGBUF);
 	__uint(max_entries, 1);
 } rbsik SEC(".maps");
 
+//Nanosaniye cinsinden an ölçümü ve debugging için global variabls
 u l int t, t0,t1;
-u char ptc;
+u char ptc;	//packet count
 
-#define ptac(pti) if ((void*)c->d + pti+1 > (void*)c->de)	goto e
+#define ptac(pti) if ((void*)c->d + pti+1 > (void*)c->de)	goto e	//packet access check
 
 SEC("xdp")
-int pm(struct xdp_md *c)
+int pm(struct xdp_md *c)	//p(rogra)m.	c(ontext)
 {
 	t = bpfktgtains();
 
-	ptac(acc+2);
+	ptac(acc+2);	//instea of nested stupid if blocks
 
-	u char ptt = ((u char *)(c->d))[0];
+	u char ptt = ((u char *)(c->d))[0];	//p(acke)t t(ype)
 	switch(ptt)
 	{
 		case 0:	//ack
@@ -57,17 +62,25 @@ int pm(struct xdp_md *c)
 			bpf_ringbuf_output(&rbsik, &pti, 1, 0);
 	}
 	
+	///indent using tabs please.
+
 	t1 = bpfktgtains();
 	ptc++;
-	t0=t;
+	t0=t;	//debugging actions had better not be included while we measure time
 	return XDP_DROP;
 	e:	return XDP_PASS;
 }
 /*
 sudo ip netns exec n1 ip link set dev ven1 xdpgeneric off
 clang -c SKI.c -o SKI.o -target bpf -g -O1 -fno-builtin
-e n1 ip link set dev ven1 xdpgeneric obj SKI.o sec xdp
+sudo ip netns exec n1 ip link set dev ven1 xdpgeneric obj SKI.o sec xdp
 
+//compilation variables:
+	xdpgeneric kullandım ki xdp ile karşılaştırabilelim.
+	-O1	minimum optimization needed
+	-fno-builtin	Bunu etkisi var mı bilmiyorum. Built*in fonlsitonları optimize etme diyorsun.
+
+//to view global variables for measurement:
 sudo bpftool map dump name SKI.bss
 */
 char _license[] SEC("license") = "GPL";

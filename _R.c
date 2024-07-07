@@ -1,3 +1,5 @@
+//Receiver the total user-space implemeentation
+
 #define _POSIX_C_SOURCE 199309L	//for use of TAI clock
 
 #include <stdio.h>
@@ -33,7 +35,7 @@ int main(int arc, char** ars)
 	int sockfd;
 	struct ifreq ifr;
 	struct sockaddr_ll sa;
-	unsigned char reb[14+pds+1], seb[14+acc+1];
+	unsigned char reb[14+pds+1], seb[14+acc+1];	//se(nd) / re(ceive) b(uffer)
 
 	// Create a raw socket
 	if ((sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -43,7 +45,7 @@ int main(int arc, char** ars)
 
 	// Specify the interface to listen on
 	memset(&ifr, 0, sizeof(struct ifreq));
-	strncpy(ifr.ifr_name, "ven2", IFNAMSIZ - 1); // Change "eth0" to your interface name
+	strncpy(ifr.ifr_name, "ven2", IFNAMSIZ - 1); // Change "ven2" to your interface name
 	if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
 		perror("ioctl");
 		close(sockfd);
@@ -89,13 +91,12 @@ int main(int arc, char** ars)
 	for (u char en=0; en<re; en++)
 	{
 		for (u char pti=0; pti<pcif; pti++)	fr[pti]=0;
-		u char ptc=0;
+		u char ptc=0;	//reset ptc to be able to send partyaial cumulative acks
 		c:
 		ssize_t num_bytes = recvfrom(sockfd, reb, ETH_FRAME_LEN, 0, NULL, NULL);
 		if (num_bytes)
 		{
-			struct ts t;
-			tai(t);
+			struct ts t;	tai(t);
 			p("%d. packet came at \t\t\t\t%ld%ld\n", reb[14], t.tv_sec, t.tv_nsec);
 			seb[15+seb[14]] = reb[14];
 			ptc++, seb[14]++;
@@ -115,8 +116,7 @@ int main(int arc, char** ars)
 		p("\n");
 	}
 
-	struct ts t;
-	tai(t);
+	struct ts t;	tai(t);
 	p("experiment finished at \t\t\t\t%ld%ld\n", t.tv_sec, t.tv_nsec);
 
 	p("\n");

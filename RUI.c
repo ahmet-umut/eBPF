@@ -1,9 +1,12 @@
+//Receiver User-space
+
 #define _POSIX_C_SOURCE 199309L	//for use of TAI clock
 
 //userspace eBPF program includes
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
+//general user-space C program needs
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -65,8 +68,8 @@ err_close_fds:
 
 #define p printf
 
-u char *f;
-u char *fr;
+u char *f;	//f(ile)
+u char *fr;	//f(ile) r(eceived)	each element is for marking that a part (packet sized part) of a packet is received or not
 char fs,pds,pcif,re,acc;
 
 #include <string.h>
@@ -78,17 +81,23 @@ char fs,pds,pcif,re,acc;
 #include <arpa/inet.h>
 
 u char en=0;
-int rbsfn(void*c, void*d, size_t s)
+int rbcfn(void*c, void*d, size_t s)
 {
-	for (u char pti=0; pti<pcif; pti++)	if (!fr[pti])	goto c;
-	for (u char pti=0; pti<pcif; pti++)	fr[pti]=0; en++;
-	c:
+	for (u char pti=0; pti<pcif; pti++)	if (!fr[pti])	goto c;	//__likely, If there is any packet whose data is not received goto c
+	for (u char pti=0; pti<pcif; pti++)	fr[pti]=0; en++;	//Fully received, prepare for the next repetition of the experiment
+
+	///şu yujkardaki zıkkınmı neden ring buffer fn.sinde yapıyoruz? Çünkü RK ring buffer'ı öyle bir bombardımana sokuyor ki biz initialization yapamadan sıradaki dosyayı almaya başlıyorlar bunlar. Sonra da fr[*]=1 olduğu için sıkıntı yaşanıyor
+
+	///e(xperiment) n(umber)
+	
+	c:	//c(ontinue)
 	struct ts t;	tai(t);
-	p("dereferencing d\n");
+	p("dereferencing d\n");	//debugging purposes
 	p("%hhu. packet (%hhu) came at \t\t\t%ld%ld\n", *(u char *)d, ((u char *)d)[1], t.tv_sec, t.tv_nsec);
 
-	if (s < pds+1)	//packet info is partial, lost in the . Just do not receive packet. This functionality can be imroved by receiving partial packets etc. Future weork.
+	if (s < pds+1)	//packet data is partial. Just do not receive packet. This functionality can be imroved by receiving partial packets etc. Future weork.
 	{
+		//bunu copy paste yaptrım yani bu kadar local var tanımlamak falan hepsi overhead. Bunları optimize etmek için global falan yapılabilir ya da static...
 		int sockfd;
 		struct ifreq ifr;
 		struct sockaddr_ll sa;
@@ -115,7 +124,7 @@ int rbsfn(void*c, void*d, size_t s)
 		sa.sll_halen = ETH_ALEN;
 		sa.sll_protocol = htons(ETH_P_IP);
 
-		// Destination MAC address (example)
+		// Destination MAC address...
 		sa.sll_addr[0] = 0xFF;
 		sa.sll_addr[1] = 0xFF;
 		sa.sll_addr[2] = 0xFF;
@@ -130,11 +139,13 @@ int rbsfn(void*c, void*d, size_t s)
 		buffer[0] = 1;
 		buffer[1] = *(u char *)d;
 		sendto(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&sa, sizeof(struct sockaddr_ll));
+
+		return 0;
 	}
 	for (u char pdi=0; pdi<pds; pdi++)	f[((u char *)d)[0]*pcif + pdi] = ((u char *)d)[pdi+1];
-	p("read packet fully\n");
+	p("read packet fully\n");	//debugging
 
-	fr[((u char *)d)[0]] = 1;
+	fr[((u char *)d)[0]] = 1;	//mark packet as received
 	return 0;
 }
 
@@ -148,28 +159,29 @@ int main(int arc, char** ars)
 	for (u char pti=0; pti<pcif; pti++)	fr[pti]=0;
 	u char _f[fs];	f=_f;
 
-	u char cb;
 	struct ring_buffer *rb;
 	int fd=0, *fdp=&fd;
 	gfd("rbrk",&fdp);
-	rb = ring_buffer__new(fd, rbsfn, 0,0);
+	rb = ring_buffer__new(fd, rbcfn, 0,0);
 
 	for (en=0; en<re; en++)
 	{
 		for (u char pti=0; pti<pcif; pti++)	fr[pti]=0;
 		c:
-		cb = ring_buffer__poll(rb, 0);
-		for (u char pti=0; pti<pcif; pti++)	if (!fr[pti])	goto c;
+		ring_buffer__poll(rb, 0);
+		for (u char pti=0; pti<pcif; pti++)	if (!fr[pti])	goto c;	//if any packet is not received yet
 		// p("done\n");
 	}
 
 	struct ts t;
 	tai(t);
-	p("finished at \t\t\t%ld%ld\n", t.tv_sec, t.tv_nsec);
+	p("finished by \t\t\t%ld%ld\n", t.tv_sec, t.tv_nsec);
 	
-	p("file info:	");
+	p("file data:	");
 	for (u char pti=0; pti<fs; pti++) p("%hhu ", f[pti]);
 	p("\n");
+
+	///ya burda datayı random bi şeyler gösteriyor sanırım runtime size array olduğu için problemli bu. Fakat işte debug verileriyle görüyoruz ki veriler doğru paketi falan doğru alıyoruz kernelde ve user space'de. yalnızca okuyamıyoruz.
 	
 	return 0;
 }

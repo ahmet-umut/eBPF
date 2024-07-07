@@ -1,3 +1,6 @@
+//Sender total userspace (for comparison)
+//No nacks
+
 #define _POSIX_C_SOURCE 199309L	//for use of TAI clock
 
 //general user-space C program needs
@@ -120,6 +123,7 @@ int main(int arc, char** ars)
 		}
 
 		c:
+		//receive acks
 		ssize_t num_bytes = recvfrom(sockfd, reb, ETH_FRAME_LEN, 0, NULL, NULL);
 		if (num_bytes)	for (u char aci=0; aci<reb[14]; aci++)	fa[reb[15+aci]] = 1, p("received");
 
@@ -133,7 +137,7 @@ int main(int arc, char** ars)
 		}
 	}
 	tai(t1);
-	p("experiment done at\t\t\t\t%ld%ld\n", t1.tv_sec, t1.tv_nsec);
+	p("experiment done by \t\t\t\t%ld%ld\n", t1.tv_sec, t1.tv_nsec);
 
 	e:
 	close(sockfd);
@@ -141,6 +145,7 @@ int main(int arc, char** ars)
 }
 /*
 sudo ip netns exec n1 ip link set dev ven1 xdpgeneric off
+
 clang _S.c -o _S -lbpf -fno-builtin
 e n1 ./_S 
 */
